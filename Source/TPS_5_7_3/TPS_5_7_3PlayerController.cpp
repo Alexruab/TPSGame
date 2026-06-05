@@ -65,3 +65,17 @@ bool ATPS_5_7_3PlayerController::ShouldUseTouchControls() const
 	// are we on a mobile platform? Should we force touch?
 	return SVirtualJoystick::ShouldDisplayTouchInterface() || bForceTouchControls;
 }
+
+void ATPS_5_7_3PlayerController::OnUnPossess()
+{
+	// Перед тем как потерять персонажа и уйти в Spectator, бережно удаляем контексты ввода
+	if (IsLocalPlayerController())
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
+		{
+			Subsystem->ClearAllMappings(); // Полностью очищаем старый ввод игры
+		}
+	}
+
+	Super::OnUnPossess(); // Вызываем базовую логику движка
+}

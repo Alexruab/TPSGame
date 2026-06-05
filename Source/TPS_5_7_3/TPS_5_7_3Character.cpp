@@ -9,6 +9,7 @@
 #include "GameFramework/Controller.h"
 #include "EnhancedInputComponent.h"
 #include "TPS_5_7_3/Components/TPSInventoryComponent.h"
+#include "TPS_5_7_3/Public/Components/GridPlacementComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "TPS_5_7_3.h"
@@ -73,6 +74,71 @@ void ATPS_5_7_3Character::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	{
 		UE_LOG(LogTPS_5_7_3, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
 	}
+}
+
+void ATPS_5_7_3Character::BeginPlay()
+{
+	Super::BeginPlay();
+	//check(Controller);
+	//check(IsValid(Controller));
+	check(HealthData.MaxHealth > 0.0f);
+	Health = HealthData.MaxHealth;
+	
+	OnTakeAnyDamage.AddDynamic(this, &ATPS_5_7_3Character::OnAnyDamageReceived);
+}
+
+float ATPS_5_7_3Character::GetHealthPercent() const
+{
+	return Health / HealthData.MaxHealth;
+}
+
+void ATPS_5_7_3Character::OnAnyDamageReceived(AActor* DamagedActor, float Damage, const UDamageType* DamageType,
+	AController* InstigatedBy, AActor* DamageCauser)
+{
+	const auto IsAlive = [&](){ return Health > 0.0f;};
+	if (Damage <= 0.0f || !IsAlive()) return;
+	
+	Health = FMath::Clamp(Health - Damage, 0.0f, HealthData.MaxHealth);
+	
+	if (IsAlive())
+	{
+		GetWorldTimerManager().SetTimer(HealTimerHandle, this, &ATPS_5_7_3Character::OnHealing, HealthData.HealRate, true, -1.0f);
+	} 
+	else
+	{
+		OnDeath();
+	}
+}
+
+void ATPS_5_7_3Character::OnHealing()
+{
+	Health = FMath::Clamp(Health + HealthData.HealModifier, 0.0f, HealthData.MaxHealth);
+	if (FMath::IsNearlyEqual(Health, HealthData.MaxHealth))
+	{
+		Health = HealthData.MaxHealth;
+		GetWorldTimerManager().ClearTimer(HealTimerHandle);
+	}
+}
+
+void ATPS_5_7_3Character::OnDeath()
+{
+	GetWorldTimerManager().ClearTimer(HealTimerHandle);
+	
+	check(GetCharacterMovement());
+	check(GetCapsuleComponent());
+	check(GetMesh());
+	
+	GetCharacterMovement()->DisableMovement();
+	GetCapsuleComponent()->SetCollisionResponseToAllChannels(ECR_Ignore);
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	GetMesh()->SetSimulatePhysics(true);
+	
+	if (Controller)
+	{
+		Controller->ChangeState(NAME_Spectating);
+	}
+	
+	SetLifeSpan(HealthData.LifeSpan);
 }
 
 void ATPS_5_7_3Character::Move(const FInputActionValue& Value)

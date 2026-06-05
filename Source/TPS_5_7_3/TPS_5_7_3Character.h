@@ -5,14 +5,19 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
+#include "TPS_5_7_3/TPSTypes.h"
 #include "TPS_5_7_3Character.generated.h"
 
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
 struct FInputActionValue;
+class UInputComponent;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
+
+class UDamageType;
+class AController;
 
 /**
  *  A simple player-controllable third person character
@@ -60,9 +65,9 @@ public:
 protected:
 
 	/** Initialize input action bindings */
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-protected:
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	
+	virtual void BeginPlay() override;
 
 	/** Called for movement input */
 	void Move(const FInputActionValue& Value);
@@ -91,13 +96,32 @@ public:
 public:
 
 	/** Returns CameraBoom subobject **/
-	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 
 	/** Returns FollowCamera subobject **/
-	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	
+	UFUNCTION(BlueprintCallable, Category="Health")
+	float GetHealthPercent() const;
+	
 	
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
 	UTPSInventoryComponent* InventoryComponent;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Health")
+	FHealthData HealthData;
+	
+private:
+	float Health{0.0f};
+	
+	FTimerHandle HealTimerHandle;
+	
+	UFUNCTION()
+	void OnAnyDamageReceived(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser);
+	
+	void OnHealing();
+	void OnDeath();
+	
 };
 
